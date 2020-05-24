@@ -1,25 +1,202 @@
----
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
----
-
+# Reproducible Research assignment 1
 
 ## Loading and preprocessing the data
 
+### Load the data
 
+```{r load}
+setwd("E:/repdata_data_activity")
+
+activity <- read.csv("activity.csv")
+
+str(activity)
+```
 
 ## What is mean total number of steps taken per day?
 
+### Calculate the total number of steps taken per day
 
+``` {r summing1}
+library(dplyr)
+
+activity %>%
+  group_by(date) %>%
+  summarise(
+    total_steps_per_day = sum(steps, na.rm = TRUE)
+  ) -> total_steps_each_day 
+
+total_steps_each_day
+```
+ 
+### Histogram of the total number of steps taken each day
+
+```{r hist1}
+hist(total_steps_each_day[,2])
+```
+
+### mean and median of the total number of steps taken per day
+
+```{r summary1}
+total_steps_each_day %>%
+  summarise(
+    mean_steps_per_day = mean(total_steps_per_day, na.rm = TRUE)
+  ) 
+
+total_steps_each_day %>%
+  summarise(
+    median_steps_per_day = median(total_steps_per_day, na.rm = TRUE)
+  ) 
+```
+
+mean steps taken per day: 9354
+median steps taken per day: 10395
 
 ## What is the average daily activity pattern?
 
+Make a time series plot of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
 
+```{r mean1}
+activity %>%
+  group_by(interval) %>%
+  summarise(
+    avg_steps_per_interval = mean(steps, na.rm = TRUE)
+  ) -> avg_steps_per_interval
+
+plot(avg_steps_per_interval,type="l")
+```
+
+Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+
+Sort the average steps per interval in descending order and the top row of the table will have the maximum number of steps.
+
+``` {r max1}
+avg_steps_per_interval %>% 
+  arrange(desc(avg_steps_per_interval)) -> avg_steps_per_interval_desc
+
+avg_steps_per_interval_desc[1,]
+```
+Interval at 835 minutes has highest number of steps taken averaged across all days
 
 ## Imputing missing values
 
+### Calculate and report the total number of missing values in the dataset
 
+```{r calc_missing}
+colSums(is.na(activity))
+```
+
+There are 2304 missing values in the dataset
+
+### Impute missing values with mean steps for that interval
+
+Firstly, create a merged table to include the average steps per interval information to the original table
+``` {r merge_table}
+merged <- inner_join(activity,avg_steps_per_interval)
+
+head(merged)
+```
+
+Impute missing data with the average steps per interval
+
+``` {r impute}
+for(i in 1:nrow(activity)){
+  if(is.na(activity[i,1] == TRUE)){
+  activity[i, 1] <- merged[i,4] 
+  }
+}
+
+head(activity)
+```
+
+### Summary of imputed data
+Make a histogram of the total number of steps taken each day and 
+
+```{r summing2}
+activity %>%
+  group_by(date) %>%
+  summarise(
+    total_steps_per_day = sum(steps, na.rm = TRUE)
+  ) -> total_steps_each_day 
+
+total_steps_each_day
+
+hist(total_steps_each_day[,2])
+```
+
+Calculate and report the mean and median total number of steps taken per day. 
+
+```{r summary2}
+total_steps_each_day %>%
+  summarise(
+    mean_steps_per_day = mean(total_steps_per_day, na.rm = TRUE)
+  ) 
+
+total_steps_each_day %>%
+  summarise(
+    median_steps_per_day = median(total_steps_per_day, na.rm = TRUE)
+  ) 
+```
+
+Do these values differ from the estimates from the first part of the assignment? 
+Yes, the values are different.
+
+What is the impact of imputing missing data on the estimates of the total daily number of steps?
+The values are increased slightly.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+Indicating whether a given date is a weekday or weekend day.
+
+Firstly, determine the day from the date. Then determine if the day is a weekday or weekend.
+
+```{r indicate}
+activity$day <- weekdays(as.Date(activity$date))
+head(activity)
+weekday_or_weekend <- vector(mode = "list", length = 17568)
+
+for(i in 1:nrow(activity)){
+  if(activity[i,4] == "Saturday"){
+  weekday_or_weekend[[i]] <- "weekend" } else if (activity[i,4] == "Sunday"){
+  weekday_or_weekend[[i]] <- "weekend" } else {
+  weekday_or_weekend[[i]] <- "weekday"
+  }
+}
+
+activity$weekday_or_weekend <- weekday_or_weekend
+
+head(activity)
+```
+
+Make a panel plot containing a time series plot of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis).
+
+Splitting the table into a weekday only table and weekend only table for plotting.
+``` {r split_table}
+activity %>% 
+filter(weekday_or_weekend == "weekday") -> activity_weekday
+
+dim(activity_weekday)
+
+activity %>% 
+filter(weekday_or_weekend == "weekend") -> activity_weekend
+
+dim(activity_weekend)
+```
+
+Calculating the average steps per interval across the days for only weekdays and only weekends. Then plot them seperately.
+
+```{r calculate}
+activity_weekday %>%
+  group_by(interval) %>%
+  summarise(
+    avg_steps_per_interval = mean(steps, na.rm = TRUE)
+  ) -> avg_steps_per_interval_weekday
+
+plot(avg_steps_per_interval_weekday,type="l",main="weekday average steps per interval")
+
+activity_weekend %>%
+  group_by(interval) %>%
+  summarise(
+    avg_steps_per_interval = mean(steps, na.rm = TRUE)
+  ) -> avg_steps_per_interval_weekend
+
+plot(avg_steps_per_interval_weekend,type="l",main="weekend average steps per interval")
+```
